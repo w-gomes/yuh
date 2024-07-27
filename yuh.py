@@ -68,6 +68,7 @@ def images_to_video(path):
 
 
 def run_ffmpeg(command):
+    # TODO: add an away to check if ffmpeg executable exists and/or is in path.
     process = subprocess.Popen(
                 command, stdout=subprocess.PIPE, 
                 stderr=subprocess.STDOUT, text=True)
