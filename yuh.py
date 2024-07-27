@@ -24,8 +24,6 @@ def images_to_video(path):
     folder_path = path[0] if path else 'inputs/'
     input_files = []
 
-    # TODO: check if folder is empty
-
     for file_name in os.listdir(folder_path):
         file_path = os.path.join(folder_path, file_name)
         if os.path.isfile(file_path):
