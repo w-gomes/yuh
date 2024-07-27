@@ -1,8 +1,4 @@
-# A script to create video from images
-#
-# how to use:
-# Copy the images to inputs folder and run the script.
-# images must have the same dimension, eg 1920x1080.
+# A smol script that uses ffmpeg
 
 import os
 import subprocess
