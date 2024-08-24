@@ -1,4 +1,5 @@
 # A smol script that uses ffmpeg
+# TODO: Handle better the paths for output.
 
 import os
 import subprocess
@@ -11,13 +12,14 @@ def help():
     PROGRAM_NAME = 'yuh'
 
     print('Smol tool to clip, merge videos, create a video from images, extract the audio from a video, and encode video for youtube.\n')
-    print(f'usage: python {PROGRAM_NAME} [-c path/to/input start end] [-a path/to/input] [-m path/to/input_txt_file] [-v [path/to/folder]] [-yt path/to/input]')
-    print('\noptions:\n\t-h\t\t\t\tshow this help message and exit')
-    print('\t-c path/to/input start end\tcreate a clip video. Eg start and end: 00:00:03.00 00:00:06.00')
-    print('\t-a path/to/input start end\textract audio. optional: give start and end')
-    print('\t-m path/to/input_txt_file\tmerge two or more inside input, input must be a .txt; input.txt contains the path.')
-    print('\t-v [path/to/folder]\t\tcreate a video off of images. Put the images inside inputs folder or provide the path to the folder.')
-    print('\t-yt path/to/input\t\tencode a video for youtube.')
+    print(f'usage: python {PROGRAM_NAME} [-c path/to/input start end path/to/output [flag]] [-a path/to/input path/to/output] [-m path/to/input_txt_file] [-v [path/to/folder]] [-yt path/to/input path/to/output] [-e path/to/input path/to/output]')
+    print('\noptions:\n\t-h\t\t\t\t\tshow this help message and exit')
+    print('\t-c  input start end output copy\t\tcreate a clip video. Eg start and end: 00:00:03.00 00:00:06.00 copy')
+    print('\t-a  input start end output\t\textract audio. optional: give start and end')
+    print('\t-m  input_txt_file\t\t\tmerge two or more inside input, input must be a .txt; input.txt contains the path.')
+    print('\t-v  [input]\t\t\t\tcreate a video off of images. Put the images inside inputs folder or provide the path to the folder.')
+    print('\t-yt input output\t\t\tencode a video for youtube.')
+    print('\t-e  input output\t\t\tencode a video with libx264 -crf 30 and copied audio stream. used for clips.')
 
 
 def images_to_video(path):
@@ -95,27 +97,40 @@ def main():
         case ['-h']:
             help()
 
-        case ['-c', filename, start, end]:
-            # TODO: add option for different container, mp4 or mkv
+        case ['-c', filename, start, end, output, *flag]:
             START = start
             END = end
             FILENAME = filename
-            OUTPUT_FILE = f"{filename.split('.')[0]}-out.mp4"
-            command = [
-                'ffmpeg',
-                '-y',
-                '-i', FILENAME,
-                '-ss', START,
-                '-to', END,
-                OUTPUT_FILE
-            ]
-            print(f'creating a clip of {FILENAME} [{START}...{END}] -> {OUTPUT_FILE}\n\n')
-            run_ffmpeg(command)
+            print(filename)
+            OUTPUT_FILE = output
+            if flag:
+                print(f'creating a clip of {FILENAME} [{START}...{END}] faster -> {OUTPUT_FILE}\n\n')
+                command = [
+                    'ffmpeg',
+                    '-y',
+                    '-ss', START,
+                    '-i', FILENAME,
+                    '-to', END,
+                    '-c', 'copy',
+                    '-copyts',
+                    OUTPUT_FILE
+                ]
+                run_ffmpeg(command)
+            else:
+                print(f'creating a clip of {FILENAME} [{START}...{END}] slower -> {OUTPUT_FILE}\n\n')
+                command = [
+                    'ffmpeg',
+                    '-y',
+                    '-i', FILENAME,
+                    '-ss', START,
+                    '-to', END,
+                    OUTPUT_FILE
+                ]
+                run_ffmpeg(command)
 
-        case ['-a', filename]:
-            # TODO: add option for different container, mp3 or aac
+        case ['-a', filename, output]:
             FILENAME = filename
-            OUTPUT_FILE = f"{filename.split('.')[0]}-out.mp3"
+            OUTPUT_FILE = output
             command = [
                 'ffmpeg',
                 '-y',
@@ -153,10 +168,10 @@ def main():
         case ['-v', *path]:
             images_to_video(path) 
 
-        case ['-yt', filename]:
+        case ['-yt', filename, output]:
             # TODO: add more options for preset, audio bitrate
             FILENAME = filename
-            OUTPUT_FILE = f"{filename.split('.')[0]}-out.mp4"
+            OUTPUT_FILE = output
             command = [
                 'ffmpeg',
                 '-y',
@@ -170,6 +185,21 @@ def main():
                 OUTPUT_FILE
             ]
             print(f'encoding video ({filename}) for youtube.\n\n') 
+            run_ffmpeg(command)
+
+        case ['-e', filename, output]:
+            FILENAME = filename
+            OUTPUT_FILE = output
+            command = [
+                'ffmpeg',
+                '-y',
+                '-i', FILENAME,
+                '-c:v', 'libx264',
+                '-crf', '30',
+                '-c:a', 'copy',
+                OUTPUT_FILE
+            ]
+            print(f'encoding {FILENAME} with libx264 crf=30 audio stream copied -> {OUTPUT_FILE}\n\n')
             run_ffmpeg(command)
 
         case _:
