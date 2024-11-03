@@ -72,7 +72,7 @@ class Yuh(Enum):
 
 
 def images_to_video(path, framerate):
-    folder_path = path[0] if path else "inputs/"
+    folder_path = path
     input_files = []
 
     for file_name in os.listdir(folder_path):
@@ -239,7 +239,7 @@ def main():
             #    print(f'error trying to merge: {args.input}')
             print("not implemented")
         case Namespace(video=True):
-            images_to_video(args.input, args.framerate)
+            images_to_video(args.input[0], args.framerate)
         case Namespace(youtube=True):
             if args.output is None:
                 print("youtube option requires output")
