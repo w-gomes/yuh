@@ -5,25 +5,74 @@ import os
 import subprocess
 import shutil
 import tempfile
-from sys import argv
+
+from argparse import ArgumentParser, Namespace
+from enum import Enum
 
 
-def help():
-    PROGRAM_NAME = 'yuh'
+class Yuh(Enum):
+    CLIP = [
+        "ffmpeg",
+        "-y",
+        "-ss",
+        "START",
+        "-i",
+        "INPUT",
+        "-to",
+        "END",
+        "-c",
+        "copy",
+        "-copyts",
+        "OUTPUT",
+    ]
+    AUDIO = ["ffmpeg", "-y", "-i", "INPUT", "-vn", "-c:a", "mp3", "OUTPUT"]
+    MERGE = [
+        "ffmpeg",
+        "-y",
+        "-f",
+        "concat",
+        "-i",
+        "LIST",
+        "-c",
+        "copy",
+        "OUTPUT",
+    ]
+    YOUTUBE = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        "INPUT",
+        "-c:v",
+        "libx264",
+        "-crf",
+        "18",
+        "-preset",
+        "ultrafast",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "384k",
+        "-pix_fmt",
+        "yuv420p",
+        "OUTPUT",
+    ]
+    ENCODE = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        "INPUT",
+        "-c:v",
+        "libx264",
+        "-crf",
+        "30",
+        "-c:a",
+        "copy",
+        "OUTPUT",
+    ]
 
-    print('Smol tool to clip, merge videos, create a video from images, extract the audio from a video, and encode video for youtube.\n')
-    print(f'usage: python {PROGRAM_NAME} [-c path/to/input start end path/to/output [flag]] [-a path/to/input path/to/output] [-m path/to/input_txt_file] [-v [path/to/folder]] [-yt path/to/input path/to/output] [-e path/to/input path/to/output]')
-    print('\noptions:\n\t-h\t\t\t\t\tshow this help message and exit')
-    print('\t-c  input start end output copy\t\tcreate a clip video. Eg start and end: 00:00:03.00 00:00:06.00 copy')
-    print('\t-a  input start end output\t\textract audio. optional: give start and end')
-    print('\t-m  input_txt_file\t\t\tmerge two or more inside input, input must be a .txt; input.txt contains the path.')
-    print('\t-v  [input]\t\t\t\tcreate a video off of images. Put the images inside inputs folder or provide the path to the folder.')
-    print('\t-yt input output\t\t\tencode a video for youtube.')
-    print('\t-e  input output\t\t\tencode a video with libx264 -crf 30 and copied audio stream. used for clips.')
 
-
-def images_to_video(path):
-    folder_path = path[0] if path else 'inputs/'
+def images_to_video(path, framerate):
+    folder_path = path[0] if path else "inputs/"
     input_files = []
 
     for file_name in os.listdir(folder_path):
@@ -32,26 +81,40 @@ def images_to_video(path):
             input_files.append(file_path)
 
     if not input_files:
-        print(f'{folder_path} is empty')
+        print(f"{folder_path} is empty")
         return
 
-    print(f'creating a video from images in {folder_path}\n')
+    print(
+        f"creating a video from images in {folder_path} with framerate 1/{framerate}\n"
+    )
+    if framerate > 10:
+        print("framerate is too high!")
+
+    if framerate < 1:
+        print("framerate is less than 1! Cancelling...")
+        return
 
     temp_dir = tempfile.mkdtemp()
-    print(f'created temporary directory {temp_dir}\n')
+    print(f"created temporary directory {temp_dir}\n")
 
-    output_file = f'{folder_path}/images_to_video-out.mp4'
+    output_file = f"{folder_path}/images_to_video-out.mp4"
 
     command = [
-        'ffmpeg',
-        '-y',
-        '-framerate', '1/5',
-        '-i', f"{temp_dir}\\img%d.png",
-        '-c:v', 'libx264',
-        '-r', '30',
-        '-pix_fmt', 'yuv420p',
-        output_file
+        "ffmpeg",
+        "-y",
+        "-framerate",
+        "1/5",
+        "-i",
+        f"{temp_dir}\\img%d.png",
+        "-c:v",
+        "libx264",
+        "-r",
+        "30",
+        "-pix_fmt",
+        "yuv420p",
+        output_file,
     ]
+    command[3] = f"1/{framerate}"
 
     try:
         total_images = 0
@@ -72,11 +135,11 @@ def images_to_video(path):
 def run_ffmpeg(command):
     # TODO: add an away to check if ffmpeg executable exists and/or is in path.
     process = subprocess.Popen(
-                command, stdout=subprocess.PIPE, 
-                stderr=subprocess.STDOUT, text=True)
+        command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+    )
     while True:
         output = process.stdout.readline()
-        if output == '' and process.poll() is not None:
+        if output == "" and process.poll() is not None:
             break
         if output:
             print(output.strip())
@@ -90,120 +153,113 @@ def run_ffmpeg(command):
 
 
 def main():
-    match argv[1:]:
-        case []:
-            print('missing argument, -h for help.')
+    parser = ArgumentParser(
+        description="Smol tool to clip, merge videos, create a video from images, extract the audio from a video, and encode video for youtube."
+    )
 
-        case ['-h']:
-            help()
+    parser.add_argument("input", nargs=1, type=str, help="Input file path")
+    parser.add_argument("output", nargs="?", type=str, help="Output file path")
+    parser.add_argument("start", nargs="?", type=str, help="Starting position")
+    parser.add_argument("end", nargs="?", type=str, help="Ending position")
 
-        case ['-c', filename, start, end, output, *flag]:
-            START = start
-            END = end
-            FILENAME = filename
-            print(filename)
-            OUTPUT_FILE = output
-            if flag:
-                print(f'creating a clip of {FILENAME} [{START}...{END}] faster -> {OUTPUT_FILE}\n\n')
-                command = [
-                    'ffmpeg',
-                    '-y',
-                    '-ss', START,
-                    '-i', FILENAME,
-                    '-to', END,
-                    '-c', 'copy',
-                    '-copyts',
-                    OUTPUT_FILE
-                ]
-                run_ffmpeg(command)
-            else:
-                print(f'creating a clip of {FILENAME} [{START}...{END}] slower -> {OUTPUT_FILE}\n\n')
-                command = [
-                    'ffmpeg',
-                    '-y',
-                    '-i', FILENAME,
-                    '-ss', START,
-                    '-to', END,
-                    OUTPUT_FILE
-                ]
-                run_ffmpeg(command)
+    parser.add_argument(
+        "-c", "--clip", action="store_true", help="creates a clip"
+    )
+    parser.add_argument(
+        "-a", "--audio", action="store_true", help="extracts audio"
+    )
+    parser.add_argument(
+        "-m",
+        "--merge",
+        action="store_true",
+        help="merges two or more inputs. input must be a .txt file",
+    )
+    parser.add_argument(
+        "-v",
+        "--video",
+        action="store_true",
+        help="creates a video off of images",
+    )
+    parser.add_argument(
+        "--framerate",
+        nargs="?",
+        default=5,
+        type=int,
+        help="Framerate for video made from images",
+    )
+    parser.add_argument(
+        "-yt",
+        "--youtube",
+        action="store_true",
+        help="encodes a video for youtube",
+    )
+    parser.add_argument(
+        "-e",
+        "--encode",
+        action="store_true",
+        help="encodes a video with a specific option: libx264 -crf 30 audio stream is copied. used for clips",
+    )
 
-        case ['-a', filename, output]:
-            FILENAME = filename
-            OUTPUT_FILE = output
-            command = [
-                'ffmpeg',
-                '-y',
-                '-i', FILENAME,
-                '-vn',
-                '-c:a', 'mp3',
-                OUTPUT_FILE
-            ]
-            print(f'extracting audio of {FILENAME} -> {OUTPUT_FILE}\n\n')
+    args = parser.parse_args()
+
+    match args:
+        case Namespace(clip=True):
+            if args.start is None or args.end is None:
+                print("clip option requires start and end")
+                return
+
+            print(
+                f"creating a clip of {args.input[0]} [{args.start}...{args.end}] -> {args.output}\n\n"
+            )
+            cmd_args = {
+                "INPUT": args.input[0],
+                "START": args.start,
+                "END": args.end,
+                "OUTPUT": args.output,
+            }
+            command = [cmd_args.get(item, item) for item in Yuh.CLIP.value]
             run_ffmpeg(command)
+        case Namespace(audio=True):
+            if args.output is None:
+                print("audio option requires output")
+                return
 
-        case ['-m', filename]:
-            # TODO: implement this.
-            """
-            if filename.endswith('.txt'):
-                LIST = filename
-                OUTPUT_FILE = "merged_inputs-out.mp4"
-                command = [
-                    'ffmpeg',
-                    '-y',
-                    '-f', 'concat',
-                    '-i', LIST,
-                    '-c', 'copy',
-                    OUTPUT_FILE
-                ]
-
-                # TODO: check contents from list.txt
-                print(f"merging inputs from {LIST} -> {OUTPUT_FILE}\n\n")
-                run_ffmpeg(command)
-            else:
-                print('input file must be .txt')
-            """
-            print('Currently not supported\n\n')
-
-        case ['-v', *path]:
-            images_to_video(path) 
-
-        case ['-yt', filename, output]:
-            # TODO: add more options for preset, audio bitrate
-            FILENAME = filename
-            OUTPUT_FILE = output
-            command = [
-                'ffmpeg',
-                '-y',
-                '-i', FILENAME,
-                '-c:v', 'libx264',
-                '-crf', '18',
-                '-preset', 'ultrafast',
-                '-c:a', 'aac',
-                '-b:a', '384k',
-                '-pix_fmt', 'yuv420p',
-                OUTPUT_FILE
-            ]
-            print(f'encoding video ({filename}) for youtube.\n\n') 
+            # TODO: add a way to use the same input path and name to output.
+            print(f"extracting audio of {args.input[0]} -> {args.output}\n\n")
+            cmd_args = {"INPUT": args.input[0], "OUTPUT": args.output}
+            command = [cmd_args.get(item, item) for item in Yuh.AUDIO.value]
             run_ffmpeg(command)
+        case Namespace(merge=True):
+            # if args.input[0].endswitch('.txt'):
+            #    print(f"merging inputs from {args.input[0]} -> {args.output}\n\n")
+            #    cmd_args = {'LIST': args.input[0], 'OUTPUT': args.output}
+            #    command = [cmd_args.get(item, item) for item in Yuh.MERGE.value]
+            #    run_ffmpeg(command)
+            # else:
+            #    print(f'error trying to merge: {args.input}')
+            print("not implemented")
+        case Namespace(video=True):
+            images_to_video(args.input, args.framerate)
+        case Namespace(youtube=True):
+            if args.output is None:
+                print("youtube option requires output")
+                return
 
-        case ['-e', filename, output]:
-            FILENAME = filename
-            OUTPUT_FILE = output
-            command = [
-                'ffmpeg',
-                '-y',
-                '-i', FILENAME,
-                '-c:v', 'libx264',
-                '-crf', '30',
-                '-c:a', 'copy',
-                OUTPUT_FILE
-            ]
-            print(f'encoding {FILENAME} with libx264 crf=30 audio stream copied -> {OUTPUT_FILE}\n\n')
+            print(f"encoding video ({args.input[0]}) for youtube.\n\n")
+            cmd_args = {"INPUT": args.input[0], "OUTPUT": args.output}
+            command = [cmd_args.get(item, item) for item in Yuh.YOUTUBE.value]
             run_ffmpeg(command)
+        case Namespace(encode=True):
+            if args.output is None:
+                print("encode option requires output")
+                return
 
-        case _:
-            print(f"Sorry, I couldn't understand: {argv[1:]}. Perhaps inputs are missing.       ")
+            print(
+                f"encoding {args.input[0]} with libx264 crf=30 audio stream copied -> {args.output}\n\n"
+            )
+            cmd_args = {"INPUT": args.input[0], "OUTPUT": args.output}
+            command = [cmd_args.get(item, item) for item in Yuh.ENCODE.value]
+            run_ffmpeg(command)
 
 
 if __name__ == "__main__":
