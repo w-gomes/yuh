@@ -200,7 +200,7 @@ def main():
         help="encodes a video with libx264 -crf value given by user or default to 23. audio stream is copied. used for clips",
     )
     parser.add_argument(
-        "-crf",
+        "--crf",
         nargs="?",
         default=23,
         type=int,
