@@ -64,7 +64,7 @@ class Yuh(Enum):
         "-c:v",
         "libx264",
         "-crf",
-        "30",
+        "23",
         "-c:a",
         "copy",
         "OUTPUT",
@@ -197,7 +197,14 @@ def main():
         "-e",
         "--encode",
         action="store_true",
-        help="encodes a video with a specific option: libx264 -crf 30 audio stream is copied. used for clips",
+        help="encodes a video with libx264 -crf value given by user or default to 23. audio stream is copied. used for clips",
+    )
+    parser.add_argument(
+        "-crf",
+        nargs="?",
+        default=23,
+        type=int,
+        help="Value for crf, default to 23",
     )
 
     args = parser.parse_args()
@@ -254,11 +261,16 @@ def main():
                 print("encode option requires output")
                 return
 
+            if args.crf < 0 and args.crf > 51:
+                print(f"crf value out of range [0..51] = {args.crf}")
+                return
+
             print(
-                f"encoding {args.input[0]} with libx264 crf=30 audio stream copied -> {args.output}\n\n"
+                f"encoding {args.input[0]} with libx264 crf={args.crf} audio stream copied -> {args.output}\n\n"
             )
             cmd_args = {"INPUT": args.input[0], "OUTPUT": args.output}
             command = [cmd_args.get(item, item) for item in Yuh.ENCODE.value]
+            command[7] = str(args.crf)
             run_ffmpeg(command)
 
 
