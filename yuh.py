@@ -88,7 +88,8 @@ def images_to_video(path, framerate):
         f"creating a video from images in {folder_path} with framerate 1/{framerate}\n"
     )
     if framerate > 10:
-        print("framerate is too high!")
+        print("framerate is too high! Cancelling...")
+        return
 
     if framerate < 1:
         print("framerate is less than 1! Cancelling...")
@@ -133,7 +134,7 @@ def images_to_video(path, framerate):
 
 
 def run_ffmpeg(command):
-    # TODO: add an away to check if ffmpeg executable exists and/or is in path.
+    # TODO: Check if ffmpeg executable exists and/or is in path.
     process = subprocess.Popen(
         command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
     )
@@ -172,13 +173,13 @@ def main():
         "-m",
         "--merge",
         action="store_true",
-        help="merges two or more inputs. input must be a .txt file",
+        help="merges two or more inputs. inputs must be in a .txt file",
     )
     parser.add_argument(
         "-v",
         "--video",
         action="store_true",
-        help="creates a video off of images",
+        help="creates a video from images",
     )
     parser.add_argument(
         "--framerate",
